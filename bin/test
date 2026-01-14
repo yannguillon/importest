@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH << File.expand_path('../test', __dir__)
+
+puts 'Installing Ruby dependencies'
+`bundle install`
+
+require 'bundler/setup'
+require 'rails/plugin/test'
