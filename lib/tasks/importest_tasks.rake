@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Importest
-  RUNTIMES = %i[deno].freeze
+  RUNTIMES = %i[deno node].freeze
   module Tasks
     module_function
 
@@ -13,11 +13,26 @@ module Importest
         puts 'You must be running with importmap-rails (config/importmap.rb) to use this gem.'
       end
     end
+
+    def run_with_rails_server(host, port)
+      server = Rails::Server.new(
+        Port: port,
+        Host: host,
+        environment: 'test',
+        server: nil, # nil = auto-detect server
+        config: 'config.ru',
+        Silent: true
+      )
+      server_thread = Thread.new { server.start }
+      yield
+      server_thread.kill
+      server_thread.join
+    end
   end
 end
 
 namespace :importest do
-  desc 'Install Importest into the app (runtime=deno, defaults to deno)'
+  desc 'Install Importest into the app (runtime=deno|node, defaults to deno)'
   task :install do |_t, args|
     runtime = (args[:runtime] || 'deno').to_sym
 
@@ -29,9 +44,14 @@ namespace :importest do
   end
 
   namespace :install do
-    desc 'Install Importest on an app running deno'
+    desc 'Install Importest for deno'
     task :deno do
       Importest::Tasks.run_importest_install_template 'deno'
+    end
+
+    desc 'Install Importest for node'
+    task :node do
+      Importest::Tasks.run_importest_install_template 'node'
     end
   end
 end
@@ -52,23 +72,21 @@ namespace :test do
     port = 3001
     base_url = "http://#{host}:#{port}"
     importmap = JSON.parse(Rails.application.importmap.to_json(resolver: ActionController::Base.helpers))
-    importmap['imports'].transform_values! { |v| v.start_with?('http') ? v : base_url + v }
-    server = Rails::Server.new(
-      Port: port,
-      Host: host,
-      environment: 'test',
-      server: nil, # nil = auto-detect server
-      config: 'config.ru',
-      Silent: true
-    )
-    server_thread = Thread.new { server.start }
-    Tempfile.create(['importmap', '.json']) do |f|
-      f.write(importmap.to_json)
-      f.flush
-      system(runtime.to_s, 'test', "--importmap=#{f.path}", '--allow-import')
-    end
+    importmap['imports'].transform_values! { |v| base_url + v }
 
-    server_thread.kill
-    server_thread.join
+    Importest::Tasks.run_with_rails_server(host, port) do
+      Tempfile.create(['importmap', '.json']) do |f|
+        f.write(importmap.to_json)
+        f.flush
+
+        case runtime
+        when :deno
+          system('deno', 'test', "--importmap=#{f.path}", '--allow-import')
+        when :node
+          ENV['IMPORTMAP_PATH'] = f.path
+          system('node', '--import', Rails.root.join('test/javascript/node_importmap_loader.mjs').to_s, '--test', 'test/javascript/')
+        end
+      end
+    end
   end
 end

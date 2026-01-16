@@ -1,12 +1,15 @@
 # Importest for Rails
 
 ## Installation
-
-### Installing with installer
-
+### Install for deno
 1. Add the `importest` gem to your Gemfile: `gem 'importest'`
-2. Run `./bin/bundle install`
-3. Run `./bin/rails importest:install`
+2. Run `bundle install`
+3. Run `rails importest:install` or `rails importest:install:deno`
+
+### Install for node
+1. Add the `importest` gem to your Gemfile: `gem 'importest'`
+2. Run `bundle install`
+3. Run `rails importest:install:node`
 
 ## License
 
