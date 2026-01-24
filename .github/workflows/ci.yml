@@ -1,0 +1,50 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    env:
+      RAILS_VERSION: ${{ matrix.rails }}
+      BUNDLE_PATH: "vendor/bundle-${{ matrix.rails }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Test against Rails ${{ matrix.rails }} on Ruby ${{ matrix.ruby }} with Node ${{ matrix.node }} and Deno ${{ matrix.deno }}
+    strategy:
+      matrix:
+        rails: ['8.1.2']
+        ruby: ['3.2']
+        node: ['24', '25']
+        deno: ['2.1', '2.2', '2.5']
+        include:
+          # Rails 7.0 (last version with Sprockets as default)
+          - rails: '7.0.1'
+            ruby: '3.1'
+            node: '20'
+            deno: '2.6.4'
+          - rails: '7.0.1'
+            ruby: '3.2'
+            node: '20'
+            deno: '2.6.4'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node }}
+
+    - name: Setup Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v${{ matrix.deno }}
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+
+    - name: Test
+      run: bundle exec rake
+      env:
+        RAILS_ENV: "test"

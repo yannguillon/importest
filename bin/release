@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+VERSION=$1
+
+printf "module Importest\n  VERSION = \"$VERSION\"\nend\n" > ./lib/importest/version.rb
+bundle
+git add Gemfile.lock lib/importest/version.rb
+git commit -m "Bump version for $VERSION"
+git push
+git tag v$VERSION
+git push --tags
+gem build importest.gemspec
+gem push "importest-$VERSION.gem" --host https://rubygems.org
+rm "importest-$VERSION.gem"
