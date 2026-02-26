@@ -6,26 +6,48 @@ jobs:
   test:
     env:
       RAILS_VERSION: ${{ matrix.rails }}
-      BUNDLE_PATH: "vendor/bundle-${{ matrix.rails }}"
+      ASSET_PIPELINE: ${{ matrix.asset_pipeline }}
+      BUNDLE_PATH: "vendor/bundle-${{ matrix.rails }}-${{ matrix.asset_pipeline }}"
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    name: Test against Rails ${{ matrix.rails }} on Ruby ${{ matrix.ruby }} with Node ${{ matrix.node }} and Deno ${{ matrix.deno }}
+    name: Test Rails ${{ matrix.rails }} with ${{ matrix.asset_pipeline }} on Ruby ${{ matrix.ruby }} with Node ${{ matrix.node }} and Deno ${{ matrix.deno }}
     strategy:
       matrix:
+        # Rails 8.1.2 with Propshaft (default in Rails 8+)
         rails: ['8.1.2']
         ruby: ['3.2']
         node: ['24', '25']
         deno: ['2.1', '2.2', '2.5']
+        asset_pipeline: ['propshaft']
         include:
-          # Rails 7.0 (last version with Sprockets as default)
+          # Rails 8.1.2 with Sprockets (still supported)
+          - rails: '8.1.2'
+            ruby: '3.2'
+            node: '24'
+            deno: '2.5'
+            asset_pipeline: 'sprockets'
+          - rails: '8.1.2'
+            ruby: '3.2'
+            node: '25'
+            deno: '2.5'
+            asset_pipeline: 'sprockets'
+          # Rails 7.0 with Sprockets (default in Rails 7.0)
           - rails: '7.0.1'
             ruby: '3.1'
             node: '20'
             deno: '2.6.4'
+            asset_pipeline: 'sprockets'
           - rails: '7.0.1'
             ruby: '3.2'
             node: '20'
             deno: '2.6.4'
+            asset_pipeline: 'sprockets'
+          # Rails 7.0 with Propshaft (supported but not default)
+          - rails: '7.0.1'
+            ruby: '3.2'
+            node: '20'
+            deno: '2.6.4'
+            asset_pipeline: 'propshaft'
     steps:
     - uses: actions/checkout@v4
 
@@ -43,6 +65,19 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
+
+    - name: Configure asset pipeline
+      run: |
+        if [ "${{ matrix.asset_pipeline }}" = "propshaft" ]; then
+          # Remove sprockets if present, add propshaft
+          bundle remove sprockets-rails --skip-install || true
+          bundle add propshaft --skip-install
+        else
+          # Remove propshaft if present, add sprockets
+          bundle remove propshaft --skip-install || true
+          bundle add sprockets-rails --skip-install
+        fi
+        bundle install
 
     - name: Test
       run: bundle exec rake
